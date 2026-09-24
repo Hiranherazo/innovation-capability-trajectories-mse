@@ -1,0 +1,215 @@
+---
+title: "exploracion datos"
+format: html
+---
+
+```{r}
+experimento <- read.csv("modelo experimento total basico-table.csv", encoding=" UTF8")
+View(experimento)
+```
+
+```{r}
+library(tidyverse)
+experimento %>% group_by(X.step.) %>% summarise(total = n())
+```
+
+```{r}
+string_to_matrix <- function(variable_string){
+  tensor_str <- gsub(" ", ",", variable_string)
+  tensor_str <- gsub("[", "", tensor_str, fixed = T)
+  tensor_str <- gsub("]", "", tensor_str, fixed = T)
+  tensor_str <- strsplit(tensor_str, ",")
+  for (i in 1:length(tensor_str)){
+    tensor_str[[i]] <- as.numeric(tensor_str[[i]])
+  }
+  matriz_x <- matrix(NA,length(tensor_str),4)
+  for (i in 1:length(tensor_str)){
+    indices <- tensor_str[[i]][seq(1, length(tensor_str[[1]]), by = 2)]+1
+    matriz_x[i,indices] <- tensor_str[[i]][seq(2, length(tensor_str[[1]]), by = 2)]
+  }
+  return(matriz_x)
+}
+```
+
+```{r}
+ladvantage <- string_to_matrix(experimento$X.report.who.x..of.turtles)
+w <- string_to_matrix(experimento$X.report.who.y..of.turtles) #bienestar
+pw <- string_to_matrix(experimento$X.report.who.z..of.turtles) #bienestar proyectado
+awa <- string_to_matrix(experimento$X.report.who.a..of.turtles) #ingresos salariales acumulados
+```
+
+## Graficos descripivos
+
+```{r}
+datos_descriptiva <- experimento %>%
+  select(X.run.number.,X.step.,recovery,time.sf,time.c,time.d,
+         time.s,time.r,Impact,impact.r,impact.s,discount,inn.culture) %>%
+  mutate(ladvantage = rowMeans(ladvantage)) %>% filter(X.step. == 74)
+# 74 es el ultimo step con 4096 observaciones
+```
+
+```{r}
+covariables <- c("recovery","time.sf","time.c","time.d","time.s","time.r","Impact","impact.r","impact.s","discount","inn.culture")
+```
+
+```{r}
+library(ggplot2)
+
+# Definir la función
+boxplot_ladvantage <- function(x_variable) {
+  
+  # Crear el boxplot
+  ggplot(datos_descriptiva, aes(x = factor({{x_variable}}), y = ladvantage)) +
+    geom_boxplot(fill = "lightblue", color = "darkblue") +
+    labs(title = "",
+         x = as.character(substitute(x_variable)),
+         y = "ladvantage")
+}
+```
+
+```{r}
+library(gridExtra)
+g1 <- boxplot_ladvantage(recovery)
+g2 <- boxplot_ladvantage(time.sf)
+g3 <- boxplot_ladvantage(time.c)
+g4 <- boxplot_ladvantage(time.d)
+g5 <- boxplot_ladvantage(time.s)
+g6 <- boxplot_ladvantage(time.r)
+g7 <- boxplot_ladvantage(Impact)
+g8 <- boxplot_ladvantage(impact.r)
+g9 <- boxplot_ladvantage(impact.s)
+g10 <- boxplot_ladvantage(discount)
+g11 <- boxplot_ladvantage(inn.culture)
+
+grid.arrange(g1,g2,g3,g4,g5,g6,g7,g8,g9,g10,g11, ncol = 4, nrow = 3)
+```
+
+## Modelo lineal
+
+```{r}
+summary(experimento) # hay variables de interes que toman un solo valor
+apply(experimento[c("recovery","time.sf","time.c","time.d","time.s","time.r",
+                    "Impact","impact.r","impact.s","discount","inn.culture")],2,unique)
+# 21 categorias diferentes
+```
+
+```{r}
+modelo <- glm(formula = rowMeans(ladvantage)[experimento$X.step.==74] ~ recovery + time.sf+time.c+time.d+time.s+time.r+Impact+impact.r+impact.s+discount+inn.culture, family = quasi(link = "identity", variance = "constant"),data=experimento[experimento$X.step.==74,])
+summary(modelo)
+#adjR2(modelo)
+plot(modelo)
+```
+
+## Graficos longitudinales
+
+```{r}
+for (run in 1:10){
+  individuos <- as.data.frame(ladvantage) %>% 
+    mutate(step = experimento$X.step.) %>% 
+    filter(experimento$X.run.number. == run) 
+  plot(individuos$step,individuos[,1], type = "l", col = 1, ylim = c(0,200),
+       xlab = "Step", ylab = "ladvantage", main = paste("Simulación",run))
+  for (ind in 1:4){
+    lines(individuos$step,individuos[,ind], col = run)
+  }
+}
+```
+
+```{r}
+individuos <- as.data.frame(ladvantage) %>% 
+    mutate(step = experimento$X.step.) %>% 
+    filter(experimento$X.run.number. == 1)
+plot(individuos$step,individuos[,1], type = "l", col = 1, ylim = c(0,200))
+for (run in 1:100){
+  individuos <- as.data.frame(ladvantage) %>% 
+    mutate(step = experimento$X.step.) %>% 
+    filter(experimento$X.run.number. == run)
+  for (ind in 1:4){
+    lines(individuos$step,individuos[,ind], col = run)
+  }
+}
+```
+
+Agrupados por las $2^{10}$ combinaciones de las variables de interés
+
+```{r}
+agrupados <- experimento %>% 
+  select(X.run.number.,X.step.,recovery,time.sf,time.c,time.d,
+         time.s,time.r,Impact,impact.r,impact.s,discount,inn.culture) %>%
+  mutate(ladvantage = rowMeans(ladvantage)) %>% 
+  group_by(recovery,time.sf,time.c,time.d,time.s,time.r,
+           Impact,impact.r,impact.s,discount,inn.culture)
+  #summarise(promedio = mean(ladvantage), desviacion = sd(ladvantage))
+```
+
+Clustering
+
+```{r}
+# Extraer los clusters para una solución específica (por ejemplo, la primera solución)
+clusters <- getClusters(ladvantage_cld, 6, clusterRank = 1)
+
+# Asegúrate de que ladvantage_wide tiene la estructura adecuada
+# Suponiendo que ladvantage_wide es un dataframe con al menos 82 columnas
+# y que las columnas 2 a 82 contienen los datos a graficar
+
+# Asignar los clusters resultantes a ladvantage_wide
+ladvantage_wide$clusters <- clusters
+
+# Convertir los clusters a factor con etiquetas numéricas
+color <- factor(ladvantage_wide$clusters, labels = c(1,2,3,4,5,6))
+
+# Configuración de los márgenes y parámetros del gráfico
+par(mar = c(3,3,1.4,1.4), mgp = c(1.75,.75,0))
+
+# Graficar la primera línea
+plot(0:80, ladvantage_wide[1,2:82], type = "l", col=1,
+     main="Clasificación usando el método k-means",
+     ylim = c(0, 300), xlim=c(0,80),
+     xlab="step",
+     ylab="ladvantage", 
+     cex.main = 1, cex.lab = 1, cex.axis = 1)
+
+# Graficar las demás líneas en base a los clusters
+for (j in 1:nrow(ladvantage_wide)){
+    lines(0:80, ladvantage_wide[j,2:82], col=color[j])
+}
+
+```
+
+Caracterización de cada cluster
+
+```{r}
+datos_con_clusters <- merge(datos_descriptiva,ladvantage_wide[,c("X.run.number.","clusters")], by="X.run.number.")
+datos_con_clusters %>% group_by(clusters) %>% select(-X.run.number.,-X.step.) %>%
+  summarise_all(list(mean = mean, sd = sd, min = min, max = max))
+```
+
+
+
+## Análisis de Conrrespondencia Multiple
+
+```{r}
+Datos=subset(datos_descriptiva,select=c("recovery","time.sf","time.c","time.s","time.r","Impact","impact.r","impact.s","discount","inn.culture"))
+summary(Datos)
+attach(Datos)
+datos <- data.frame(lapply(Datos, as.factor))
+```
+
+```{r}
+#install.packages("FactoMineR")
+library(FactoMineR)
+uni.mca <- MCA(datos, graph = FALSE)
+print(uni.mca)
+```
+
+```{r}
+#install.packages("factoextra")
+library(factoextra)
+eigenval <- get_eigenvalue(uni.mca)
+head(eigenval)
+```
+
+```{r}
+fviz_screeplot(uni.mca, addlabels = TRUE, ylim = c(0, 15)) + geom_hline(yintercept = 7.14, linetype = 2, color = "red")
+
+```

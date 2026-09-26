@@ -18,7 +18,7 @@ The model was developed to investigate how organizational innovation capability 
  
 ## Platform
  
-- Software: NetLogo
+- Software: NetLogo 6.4.0
 - Modeling approach: Agent-Based Simulation (ABS)
  
 ## Main Outputs

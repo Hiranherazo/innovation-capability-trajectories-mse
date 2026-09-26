@@ -1,8 +1,8 @@
 # Innovation Capability Trajectories in Micro and Small Enterprises
 
-This repository contains the computational materials associated with the article:
+This repository contains the computational materials associated with the study:
 
-** Innovation Capability Trajectories in Micro and Small Enterprises: A Microfoundational Explanation Based on Individual Innovation Capability Development
+** Innovation Capability Trajectories in Micro and Small Enterprises: A Microfoundational Explanation Based on Individual Innovation Capability Development **
 
 ## Project Overview
 
@@ -26,7 +26,7 @@ The simulation identifies three recurring innovation capability trajectories:
 
 The simulation examines the mechanisms through which organizational innovation capability emerges from the accumulation of individual innovation capabilities.
 
-## Repository Structure
+## Repository Contents
 
 ### /article
 
